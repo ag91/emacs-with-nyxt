@@ -1,0 +1,17 @@
+* Emacs with Nyxt
+:PROPERTIES:
+:CREATED:  [2021-06-08 Tue 22:19]
+:ID:       555473fa-f3d6-452b-8bc2-06b8fa3c9b65
+:END:
+
+This is some little hack to make Emacs command [[https://nyxt.atlas.engineer/][Nyxt]]. In particular
+this provides a function to browse URLs via Nyxt run via Slime.
+
+The dependencies are:
+
+- Slime
+- Nyxt ([[https://ag91.github.io/blog/2021/05/30/browsing-in-common-lisp-nyxt-and-emacs][ideally installed via Guix if you are on Linux]])
+
+
+You can find here the blog that explains in detail how this works:
+https://ag91.github.io/blog/2021/06/08/emacs-nyxt-and-engine-mode-how-to-browse-urls-via-nyxt-and-slime/
