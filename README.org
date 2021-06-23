@@ -13,5 +13,7 @@ The dependencies are:
 - Nyxt ([[https://ag91.github.io/blog/2021/05/30/browsing-in-common-lisp-nyxt-and-emacs][ideally installed via Guix if you are on Linux]])
 
 
-You can find here the blog that explains in detail how this works:
-https://ag91.github.io/blog/2021/06/08/emacs-nyxt-and-engine-mode-how-to-browse-urls-via-nyxt-and-slime/
+You can find here the blogs that explain in more detail how this works:
+
+- https://ag91.github.io/blog/2021/06/08/emacs-nyxt-and-engine-mode-how-to-browse-urls-via-nyxt-and-slime/
+- https://ag91.github.io/blog/2021/06/22/back-to-emacs-while-in-nyxt-how-to-edit-the-web-in-a-lispy-editor/

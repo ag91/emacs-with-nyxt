@@ -83,6 +83,42 @@
   (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
   (emacs-with-nyxt-browse-url-nyxt url url))
 
+;; TODO add to Nyxt programmatically!
+;;
+;; (defun replace-all (string part replacement &key (test #'char=))
+;;   "Return a new string in which all the occurences of the part is replaced with replacement."
+;;   (with-output-to-string (out)
+;;                          (loop with part-length = (length part)
+;;                                for old-pos = 0 then (+ pos part-length)
+;;                                for pos = (search part string
+;;                                                  :start2 old-pos
+;;                                                  :test test)
+;;                                do (write-string string out
+;;                                                 :start old-pos
+;;                                                 :end (or pos (length string)))
+;;                                when pos do (write-string replacement out)
+;;                                while pos)))
+
+;; (defun eval-in-emacs (&rest s-exps)
+;;   "Evaluate S-EXPS with emacsclient."
+;;   (let ((s-exps-string (replace-all
+;;                         (write-to-string
+;;                          `(progn ,@s-exps) :case :downcase)
+;;                         ;; Discard the package prefix.
+;;                         "nyxt::" "")))
+;;     (format *error-output* "Sending to Emacs:~%~a~%" s-exps-string)
+;;     (uiop:run-program
+;;      (list "emacsclient" "--eval" s-exps-string))))
+
+
+(defun emacs-with-nyxt-search-first-in-nyxt-current-buffer (string)
+  "Search current Nyxt buffer for STRING."
+  (interactive "sString to search: ")
+  (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
+  (emacs-with-nyxt-slime-repl-send-string
+   (format "(nyxt/web-mode::highlight-selected-hint :link-hint (car (nyxt/web-mode::matches-from-json (nyxt/web-mode::query-buffer :query \"%s\"))) :scroll 't)" string)))
+
+
 ;;; emacs-with-nyxt ends here
 
 ;; Local Variables:
