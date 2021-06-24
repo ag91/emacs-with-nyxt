@@ -28,7 +28,10 @@
 ;;; Code:
 
 
-(defvar emacs-with-nyxt-slime-nyxt-delay 0.3 "Delay to wait for Slime commands to reach Nyxt.")
+(defvar emacs-with-nyxt-slime-nyxt-delay
+  0.3
+  "Delay to wait for Slime commands to reach Nyxt.")
+
 
 (defun emacs-with-nyxt-slime-connect (host port)
   "Connect Slime to HOST and PORT ignoring version mismatches."
@@ -38,15 +41,16 @@
   (sleep-for emacs-with-nyxt-slime-nyxt-delay)
   (advice-remove 'slime-check-version #'true))
 
-(defun emacs-with-nyxt-slime-repl-send-string (sexp)
-  "Send SEXP with Common Lisp command to Nyxt via Slime."
-  (defun true (&rest args) 't)
-  (advice-add 'slime-check-version :override #'true)
-  (if (slime-connected-p)
-      (slime-repl-send-string sexp)
-    (error "Slime is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first"))
-  (sleep-for emacs-with-nyxt-slime-nyxt-delay)
-  (advice-remove 'slime-check-version #'true))
+(defun emacs-with-nyxt-slime-repl-send-sexps (&rest s-exps)
+  "Evaluate S-EXPS with Nyxt Slime session."
+  (let ((s-exps-string (s-join "" (--map (prin1-to-string it) s-exps))))
+    (defun true (&rest args) 't)
+    (advice-add 'slime-check-version :override #'true)
+    (if (slime-connected-p)
+        (slime-repl-send-string s-exps-string)
+      (error "Slime is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first"))
+    (sleep-for emacs-with-nyxt-slime-nyxt-delay)
+    (advice-remove 'slime-check-version #'true)))
 
 (defun emacs-with-nyxt-start-and-connect-to-nyxt (&optional no-maximize)
   "Start Nyxt with swank capabilities. Optionally skip window maximization with NO-MAXIMIZE."
@@ -54,28 +58,53 @@
   (async-shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
   (sleep-for emacs-with-nyxt-slime-nyxt-delay)
   (emacs-with-nyxt-slime-connect "localhost" "4006")
-  (unless no-maximize (emacs-with-nyxt-slime-repl-send-string "(toggle-fullscreen)"))
-  )
+  (emacs-with-nyxt-slime-repl-send-sexps
+   `(defun replace-all (string part replacement &key (test #'char=))
+      "Return a new string in which all the occurences of the part is replaced with replacement."
+      (with-output-to-string (out)
+                             (loop with part-length = (length part)
+                                   for old-pos = 0 then (+ pos part-length)
+                                   for pos = (search part string
+                                                     :start2 old-pos
+                                                     :test test)
+                                   do (write-string string out
+                                                    :start old-pos
+                                                    :end (or pos (length string)))
+                                   when pos do (write-string replacement out)
+                                   while pos)))
+
+   `(defun eval-in-emacs (&rest s-exps)
+      "Evaluate S-EXPS with emacsclient."
+      (let ((s-exps-string (replace-all
+                            (write-to-string
+                             `(progn ,@s-exps) :case :downcase)
+                            ;; Discard the package prefix.
+                            "nyxt::" "")))
+        (format *error-output* "Sending to Emacs:~%~a~%" s-exps-string)
+        (uiop:run-program
+         (list "emacsclient" "--eval" s-exps-string))))
+   )
+  (unless no-maximize
+    (emacs-with-nyxt-slime-repl-send-sexps
+     '(toggle-fullscreen))))
 
 (defun emacs-with-nyxt-browse-url-nyxt (url &optional buffer-title)
   "Open URL with Nyxt and optionally define BUFFER-TITLE."
   (interactive "sURL: ")
-  (emacs-with-nyxt-slime-repl-send-string
-   (format
-    "(buffer-load \"%s\" %s)"
-    url
-    (if buffer-title (format ":buffer (make-buffer :title \"%s\")" buffer-title) ""))))
-
+  (emacs-with-nyxt-slime-repl-send-sexps
+   (concatenate
+    'list
+    (list
+     'buffer-load
+     url)
+    (if buffer-title
+        `(:buffer (make-buffer :title ,buffer-title))
+      nil))))
 
 (defun emacs-with-nyxt-close-nyxt-connection ()
   "Close Nyxt connection."
   (interactive)
-  (emacs-with-nyxt-slime-repl-send-string "(quit)"))
-
-;; (emacs-with-nyxt-start-and-connect-to-nyxt)
-;; (emacs-with-nyxt-browse-url-nyxt "www.google.it")
-;; (sleep-for 3)
-;; (emacs-with-nyxt-close-nyxt-connection)
+  (emacs-with-nyxt-slime-repl-send-sexps '(quit)))
 
 (defun browse-url-nyxt (url &optional new-window)
   "Browse URL with Nyxt. NEW-WINDOW is ignored."
@@ -83,40 +112,16 @@
   (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
   (emacs-with-nyxt-browse-url-nyxt url url))
 
-;; TODO add to Nyxt programmatically!
-;;
-;; (defun replace-all (string part replacement &key (test #'char=))
-;;   "Return a new string in which all the occurences of the part is replaced with replacement."
-;;   (with-output-to-string (out)
-;;                          (loop with part-length = (length part)
-;;                                for old-pos = 0 then (+ pos part-length)
-;;                                for pos = (search part string
-;;                                                  :start2 old-pos
-;;                                                  :test test)
-;;                                do (write-string string out
-;;                                                 :start old-pos
-;;                                                 :end (or pos (length string)))
-;;                                when pos do (write-string replacement out)
-;;                                while pos)))
-
-;; (defun eval-in-emacs (&rest s-exps)
-;;   "Evaluate S-EXPS with emacsclient."
-;;   (let ((s-exps-string (replace-all
-;;                         (write-to-string
-;;                          `(progn ,@s-exps) :case :downcase)
-;;                         ;; Discard the package prefix.
-;;                         "nyxt::" "")))
-;;     (format *error-output* "Sending to Emacs:~%~a~%" s-exps-string)
-;;     (uiop:run-program
-;;      (list "emacsclient" "--eval" s-exps-string))))
-
-
 (defun emacs-with-nyxt-search-first-in-nyxt-current-buffer (string)
   "Search current Nyxt buffer for STRING."
   (interactive "sString to search: ")
   (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
-  (emacs-with-nyxt-slime-repl-send-string
-   (format "(nyxt/web-mode::highlight-selected-hint :link-hint (car (nyxt/web-mode::matches-from-json (nyxt/web-mode::query-buffer :query \"%s\"))) :scroll 't)" string)))
+  (emacs-with-nyxt-slime-repl-send-sexps
+   `(nyxt/web-mode::highlight-selected-hint
+     :link-hint
+     (car (nyxt/web-mode::matches-from-json
+           (nyxt/web-mode::query-buffer :query ,string)))
+     :scroll 't)))
 
 
 ;;; emacs-with-nyxt ends here
