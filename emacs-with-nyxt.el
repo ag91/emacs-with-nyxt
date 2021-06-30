@@ -123,6 +123,19 @@
            (nyxt/web-mode::query-buffer :query ,string)))
      :scroll 't)))
 
+(defun emacs-with-nyxt-make-qr-code-of-current-url ()
+  "Open QR code of current url."
+  (interactive)
+  (if (file-exists-p "~/quicklisp/setup.lisp")
+      (progn
+        (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
+        (emacs-with-nyxt-slime-repl-send-sexps
+         '(ql:quickload "cl-qrencode")
+         '(ql:quickload "cl-qrencode")
+         '(cl-qrencode:encode-png (quri:render-uri (url (current-buffer))) :fpath "/tmp/qrcode.png"))
+        (find-file "/tmp/qrcode.png")
+        (auto-revert-mode))
+    (error "You cannot use this until you have Quicklisp installed! Check how to do that at: https://www.quicklisp.org/beta/#installation")))
 
 ;;; emacs-with-nyxt ends here
 
