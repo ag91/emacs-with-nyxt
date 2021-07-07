@@ -29,35 +29,35 @@
 
 
 (defvar emacs-with-nyxt-slime-nyxt-delay
-  0.1
+  0.3
   "Delay to wait for Slime commands to reach Nyxt.")
 
+(setq slime-protocol-version 'ignore)
 
 (defun emacs-with-nyxt-slime-connect (host port)
   "Connect Slime to HOST and PORT ignoring version mismatches."
-  (defun true (&rest args) 't)
-  (advice-add 'slime-check-version :override #'true)
   (slime-connect host port)
-  (while (slime-connected-p)
-    (sleep-for emacs-with-nyxt-slime-nyxt-delay))
-  (advice-remove 'slime-check-version #'true))
+  (while (not (slime-connected-p))
+    (sleep-for emacs-with-nyxt-slime-nyxt-delay)))
 
 (defun emacs-with-nyxt-slime-repl-send-sexps (&rest s-exps)
   "Evaluate S-EXPS with Nyxt Slime session."
   (let ((s-exps-string (s-join "" (--map (prin1-to-string it) s-exps))))
     (defun true (&rest args) 't)
-    (advice-add 'slime-check-version :override #'true)
     (if (slime-connected-p)
         (slime-repl-eval-string s-exps-string)
-      (error "Slime is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first"))
-    (advice-remove 'slime-check-version #'true)))
+      (error "Slime is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first"))))
 
 (defun emacs-with-nyxt-start-and-connect-to-nyxt (&optional no-maximize)
   "Start Nyxt with swank capabilities. Optionally skip window maximization with NO-MAXIMIZE."
   (interactive)
-  (shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
-  (emacs-with-nyxt-slime-connect "localhost" "4006")
+  (async-shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
+  (while (not (ignore-errors (not (emacs-with-nyxt-slime-connect "localhost" "4006"))))
+    (sleep-for emacs-with-nyxt-slime-nyxt-delay))
+  (while (not (ignore-errors (string= "NYXT-USER" (slime-current-package))))
+    (sleep-for emacs-with-nyxt-slime-nyxt-delay))
   (emacs-with-nyxt-slime-repl-send-sexps
+   `(load "~/quicklisp/setup.lisp")
    `(defun replace-all (string part replacement &key (test #'char=))
       "Return a new string in which all the occurences of the part is replaced with replacement."
       (with-output-to-string (out)
@@ -82,6 +82,16 @@
         (format *error-output* "Sending to Emacs:~%~a~%" s-exps-string)
         (uiop:run-program
          (list "emacsclient" "--eval" s-exps-string))))
+   `(ql:quickload "cl-qrencode")
+   `(define-command-global my/make-current-url-qr-code ()
+      "Something else."
+      (when (equal (mode-name (current-buffer)) 'web-buffer))
+      (cl-qrencode:encode-png (quri:render-uri (url (current-buffer))) :fpath "/tmp/qrcode.png"))
+   '(define-command-global my/open-html-in-emacs ()
+      "Open buffer html in Emacs."
+      (when (equal (mode-name (current-buffer)) 'web-buffer))
+      (eval-in-emacs
+       `(progn (switch-to-buffer (get-buffer-create ,(render-url (url (current-buffer))))) (erase-buffer) (insert ,(ffi-buffer-get-document (current-buffer))) (html-mode) (indent-region (point-min) (point-max)))))
    )
   (unless no-maximize
     (emacs-with-nyxt-slime-repl-send-sexps
@@ -136,6 +146,7 @@
         (auto-revert-mode))
     (error "You cannot use this until you have Quicklisp installed! Check how to do that at: https://www.quicklisp.org/beta/#installation")))
 
+(provide 'emacs-with-nyxt)
 ;;; emacs-with-nyxt ends here
 
 ;; Local Variables:
