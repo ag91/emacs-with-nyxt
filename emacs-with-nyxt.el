@@ -29,7 +29,7 @@
 
 
 (defvar emacs-with-nyxt-slime-nyxt-delay
-  0.3
+  0.1
   "Delay to wait for Slime commands to reach Nyxt.")
 
 
@@ -38,7 +38,8 @@
   (defun true (&rest args) 't)
   (advice-add 'slime-check-version :override #'true)
   (slime-connect host port)
-  (sleep-for emacs-with-nyxt-slime-nyxt-delay)
+  (while (slime-connected-p)
+    (sleep-for emacs-with-nyxt-slime-nyxt-delay))
   (advice-remove 'slime-check-version #'true))
 
 (defun emacs-with-nyxt-slime-repl-send-sexps (&rest s-exps)
@@ -47,16 +48,14 @@
     (defun true (&rest args) 't)
     (advice-add 'slime-check-version :override #'true)
     (if (slime-connected-p)
-        (slime-repl-send-string s-exps-string)
+        (slime-repl-eval-string s-exps-string)
       (error "Slime is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first"))
-    (sleep-for emacs-with-nyxt-slime-nyxt-delay)
     (advice-remove 'slime-check-version #'true)))
 
 (defun emacs-with-nyxt-start-and-connect-to-nyxt (&optional no-maximize)
   "Start Nyxt with swank capabilities. Optionally skip window maximization with NO-MAXIMIZE."
   (interactive)
-  (async-shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
-  (sleep-for emacs-with-nyxt-slime-nyxt-delay)
+  (shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
   (emacs-with-nyxt-slime-connect "localhost" "4006")
   (emacs-with-nyxt-slime-repl-send-sexps
    `(defun replace-all (string part replacement &key (test #'char=))
