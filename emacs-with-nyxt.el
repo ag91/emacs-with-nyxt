@@ -27,9 +27,12 @@
 
 ;;; Code:
 
+(require 'slime)
+(require 'org)
+(require 's)
 
 (defvar emacs-with-nyxt-slime-nyxt-delay
-  0.3
+  0.1
   "Delay to wait for Slime commands to reach Nyxt.")
 
 (setq slime-protocol-version 'ignore)
