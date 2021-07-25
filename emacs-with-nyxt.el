@@ -55,7 +55,7 @@
 (add-to-list
  'org-capture-templates
  `("wN" "Web link" entry (file+headline ,(car org-agenda-files) "Links to read later")
-   "* %?%a :readings: \nSCHEDULED: %(org-insert-time-stamp (org-read-date nil t \"Fri\"))\n"
+   "* TODO %?%a :readings: \nSCHEDULED: %(org-insert-time-stamp (org-read-date nil t \"Fri\"))\n"
    :immediate-finish t :empty-lines 2))
 
 (defun on/slug-string (title)  (let ((slug-trim-chars '(;; Combining Diacritical Marks https://www.unicode.org/charts/PDF/U0300.pdf
@@ -212,13 +212,7 @@
                          :description ,(title (current-buffer)))))))
           (org-capture nil "wN"))
        (echo "Note stored!")))
-   `(define-configuration nyxt/web-mode:web-mode
-      ;; Bind org-capture to C-o-c, but only in emacs-mode.
-      ((keymap-scheme (let ((scheme %slot-default%))
-                        (keymap:define-key (gethash scheme:emacs scheme)
-                                           "C-c o c" 'org-capture)
-                        scheme))))
-   `(define-command-global org-roam-capture ()
+    `(define-command-global org-roam-capture ()
       "Org-capture current page."
       (let ((quote (%copy))
             (title (prompt
@@ -241,6 +235,12 @@
             (find-file file)
             (org-id-get-create)))
         (echo "Org Roam Note stored!")))
+    `(define-configuration nyxt/web-mode:web-mode
+      ;; Bind org-capture to C-o-c, but only in emacs-mode.
+      ((keymap-scheme (let ((scheme %slot-default%))
+                        (keymap:define-key (gethash scheme:emacs scheme)
+                                           "C-c o c" 'org-capture)
+                        scheme))))
    `(define-configuration nyxt/web-mode:web-mode
       ;; Bind org-roam-capture to C-c n f, but only in emacs-mode.
       ((keymap-scheme (let ((scheme %slot-default%))

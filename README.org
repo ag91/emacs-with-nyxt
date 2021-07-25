@@ -19,3 +19,5 @@ You can find here the blogs that explain in more detail how this works:
 - https://ag91.github.io/blog/2021/06/22/back-to-emacs-while-in-nyxt-how-to-edit-the-web-in-a-lispy-editor/
 - https://ag91.github.io/blog/2021/06/29/extending-nyxt-via-emacs-how-to-leverage-common-lisp-wealth-to-get-your-links-as-qr-codes/
 - https://ag91.github.io/blog/2021/07/09/org-capture-in-nyxt-taking-notes-while-browsing/
+- https://ag91.github.io/blog/2021/07/22/nyxt-to-mold-html-the-first-mix-of-moldable-emacs-and-browsing/
+- https://ag91.github.io/blog/2021/07/25/org-roam-and-nyxt-taking-zettelkasten-notes-from-the-web/
