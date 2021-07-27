@@ -204,12 +204,13 @@
       "Org-capture current page."
       (eval-in-emacs
        `(let ((org-link-parameters
-               (list "nyxt" :store
-                     '(lambda ()
+               (list (list "nyxt"
+                      :store
+                      (lambda ()
                         (org-store-link-props
                          :type "nyxt"
                          :link ,(quri:render-uri (url (current-buffer)))
-                         :description ,(title (current-buffer)))))))
+                         :description ,(title (current-buffer))))))))
           (org-capture nil "wN"))
        (echo "Note stored!")))
     `(define-command-global org-roam-capture ()
@@ -218,7 +219,7 @@
             (title (prompt
                     :input (title (current-buffer))
                     :prompt "Title of note:"
-                    :sources (list (make-instance 'prompter:raw-source)))) 
+                    :sources (list (make-instance 'prompter:raw-source))))
             (text (prompt
                    :input ""
                    :prompt "Note to take:"
