@@ -27,30 +27,57 @@
 
 ;;; Code:
 
-(require 'slime)
+;; (require 'slime)
 (require 'org)
 (require 's)
+;; (require 'sly)
 
-(defvar emacs-with-nyxt-slime-nyxt-delay
+(defcustom cl-ide 'sly
+  "What IDE to use to evaluate Common Lisp.
+Defaults to Sly because it has better integration with Nyxt."
+  :options (list 'sly 'slime))
+
+(defvar emacs-with-nyxt-delay
   0.1
-  "Delay to wait for Slime commands to reach Nyxt.")
+  "Delay to wait for `cl-ide' commands to reach Nyxt.")
 
 (setq slime-protocol-version 'ignore)
 
-(defun emacs-with-nyxt-slime-connect (host port)
-  "Connect Slime to HOST and PORT ignoring version mismatches."
-  (slime-connect host port)
-  (while (not (slime-connected-p))
-    (message "Starting slime connection...")
-    (sleep-for emacs-with-nyxt-slime-nyxt-delay)))
+(defun emacs-with-nyxt-connected-p ()
+  "Is `cl-ide' connected to nyxt."
+  (cond
+   ((eq cl-ide 'slime) (slime-connected-p))
+   ((eq cl-ide 'sly) (sly-connected-p)))) ;; TODO this should check it
+                                          ;; is connected to Nyxt and
+                                          ;; not just to cl-ide
+                                          ;; session
 
-(defun emacs-with-nyxt-slime-repl-send-sexps (&rest s-exps)
-  "Evaluate S-EXPS with Nyxt Slime session."
+(defun emacs-with-nyxt--connect (host port)
+  "Connect `cl-ide' to HOST and PORT."
+  (cond
+   ((eq cl-ide 'slime) (slime-connect host port))
+   ((eq cl-ide 'sly) (sly-connect host port))))
+
+(defun emacs-with-nyxt-connect (host port)
+  "Connect `cl-ide' to HOST and PORT ignoring version mismatches."
+  (emacs-with-nyxt--connect host port)
+  (while (not (emacs-with-nyxt-connected-p))
+    (message "Starting %s connection..." cl-ide)
+    (sleep-for emacs-with-nyxt-delay)))
+
+(defun emacs-with-nyxt-eval (string)
+  "Send STRING to `cl-ide'."
+  (cond
+   ((eq cl-ide 'slime) (slime-repl-eval-string string))
+   ((eq cl-ide 'sly) (sly-interactive-eval string))))
+
+(defun emacs-with-nyxt-send-sexps (&rest s-exps)
+  "Evaluate S-EXPS with Nyxt Sly session."
   (let ((s-exps-string (s-join "" (--map (prin1-to-string it) s-exps))))
     (defun true (&rest args) 't)
-    (if (slime-connected-p)
-        (slime-repl-eval-string s-exps-string)
-      (error "Slime is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first"))))
+    (if (emacs-with-nyxt-connected-p)
+        (emacs-with-nyxt-eval s-exps-string)
+      (error (format "%s is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first" cl-ide)))))
 
 (add-to-list
  'org-capture-templates
@@ -124,17 +151,23 @@
              (org-id-get-create)
              (save-buffer)))
 
+(defun emacs-with-nyxt-current-package ()
+  "Return current package set for `cl-ide'."
+  (cond
+   ((eq cl-ide 'slime) (slime-current-package))
+   ((eq cl-ide 'sly) (with-current-buffer (sly-mrepl--find-buffer) (sly-current-package)))))
+
 (defun emacs-with-nyxt-start-and-connect-to-nyxt (&optional no-maximize)
   "Start Nyxt with swank capabilities. Optionally skip window maximization with NO-MAXIMIZE."
   (interactive)
   (async-shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
-  (while (not (ignore-errors (not (emacs-with-nyxt-slime-connect "localhost" "4006"))))
+  (while (not (ignore-errors (not (emacs-with-nyxt-connect "localhost" "4006"))))
     (message "Starting Swank connection...")
-    (sleep-for emacs-with-nyxt-slime-nyxt-delay))
-  (while (not (ignore-errors (string= "NYXT-USER" (slime-current-package))))
-    (progn (message "Setting Slime package to NYXT-USER...")
-           (sleep-for emacs-with-nyxt-slime-nyxt-delay)))
-  (emacs-with-nyxt-slime-repl-send-sexps
+    (sleep-for emacs-with-nyxt-delay))
+  (while (not (ignore-errors (string= "NYXT-USER" (upcase (emacs-with-nyxt-current-package)))))
+    (progn (message "Setting %s package to NYXT-USER..." cl-ide)
+           (sleep-for emacs-with-nyxt-delay)))
+  (emacs-with-nyxt-send-sexps
    `(load "~/quicklisp/setup.lisp")
    `(defun replace-all (string part replacement &key (test #'char=))
       "Return a new string in which all the occurences of the part is replaced with replacement."
@@ -205,15 +238,15 @@
       (eval-in-emacs
        `(let ((org-link-parameters
                (list (list "nyxt"
-                      :store
-                      (lambda ()
-                        (org-store-link-props
-                         :type "nyxt"
-                         :link ,(quri:render-uri (url (current-buffer)))
-                         :description ,(title (current-buffer))))))))
+                           :store
+                           (lambda ()
+                             (org-store-link-props
+                              :type "nyxt"
+                              :link ,(quri:render-uri (url (current-buffer)))
+                              :description ,(title (current-buffer))))))))
           (org-capture nil "wN"))
        (echo "Note stored!")))
-    `(define-command-global org-roam-capture ()
+   `(define-command-global org-roam-capture ()
       "Org-capture current page."
       (let ((quote (%copy))
             (title (prompt
@@ -236,7 +269,7 @@
             (find-file file)
             (org-id-get-create)))
         (echo "Org Roam Note stored!")))
-    `(define-configuration nyxt/web-mode:web-mode
+   `(define-configuration nyxt/web-mode:web-mode
       ;; Bind org-capture to C-o-c, but only in emacs-mode.
       ((keymap-scheme (let ((scheme %slot-default%))
                         (keymap:define-key (gethash scheme:emacs scheme)
@@ -250,13 +283,13 @@
                         scheme))))
    )
   (unless no-maximize
-    (emacs-with-nyxt-slime-repl-send-sexps
+    (emacs-with-nyxt-send-sexps
      '(toggle-fullscreen))))
 
 (defun emacs-with-nyxt-browse-url-nyxt (url &optional buffer-title)
   "Open URL with Nyxt and optionally define BUFFER-TITLE."
   (interactive "sURL: ")
-  (emacs-with-nyxt-slime-repl-send-sexps
+  (emacs-with-nyxt-send-sexps
    (concatenate
     'list
     (list
@@ -269,19 +302,19 @@
 (defun emacs-with-nyxt-close-nyxt-connection ()
   "Close Nyxt connection."
   (interactive)
-  (emacs-with-nyxt-slime-repl-send-sexps '(quit)))
+  (emacs-with-nyxt-send-sexps '(quit)))
 
 (defun browse-url-nyxt (url &optional new-window)
   "Browse URL with Nyxt. NEW-WINDOW is ignored."
   (interactive "sURL: ")
-  (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
+  (unless (emacs-with-nyxt-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
   (emacs-with-nyxt-browse-url-nyxt url url))
 
 (defun emacs-with-nyxt-search-first-in-nyxt-current-buffer (string)
   "Search current Nyxt buffer for STRING."
   (interactive "sString to search: ")
-  (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
-  (emacs-with-nyxt-slime-repl-send-sexps
+  (unless (emacs-with-nyxt-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
+  (emacs-with-nyxt-send-sexps
    `(nyxt/web-mode::highlight-selected-hint
      :link-hint
      (car (nyxt/web-mode::matches-from-json
@@ -293,8 +326,8 @@
   (interactive)
   (if (file-exists-p "~/quicklisp/setup.lisp")
       (progn
-        (unless (slime-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
-        (emacs-with-nyxt-slime-repl-send-sexps
+        (unless (emacs-with-nyxt-connected-p) (emacs-with-nyxt-start-and-connect-to-nyxt))
+        (emacs-with-nyxt-send-sexps
          '(ql:quickload "cl-qrencode")
          '(cl-qrencode:encode-png (quri:render-uri (url (current-buffer))) :fpath "/tmp/qrcode.png"))
         (find-file "/tmp/qrcode.png")
