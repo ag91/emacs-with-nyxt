@@ -69,10 +69,12 @@ Defaults to Sly because it has better integration with Nyxt."
   "Send STRING to `cl-ide'."
   (cond
    ((eq cl-ide 'slime) (slime-repl-eval-string string))
-   ((eq cl-ide 'sly) (sly-interactive-eval string))))
+   ((eq cl-ide 'sly) (sly-eval-with-transcript
+                      `(slynk:interactive-eval-region
+                        ,string)))))
 
 (defun emacs-with-nyxt-send-sexps (&rest s-exps)
-  "Evaluate S-EXPS with Nyxt Sly session."
+  "Evaluate S-EXPS with Nyxt `cl-ide' session."
   (let ((s-exps-string (s-join "" (--map (prin1-to-string it) s-exps))))
     (defun true (&rest args) 't)
     (if (emacs-with-nyxt-connected-p)
@@ -194,7 +196,7 @@ Defaults to Sly because it has better integration with Nyxt."
         (uiop:run-program
          (list "emacsclient" "--eval" s-exps-string))))
    `(ql:quickload "cl-qrencode")
-   `(define-command-global my/make-current-url-qr-code ()
+   `(define-command-global my/make-current-url-qr-code () ; this is going to be redundant: https://nyxt.atlas.engineer/article/qr-url.org
       "Something else."
       (when (equal (mode-name (current-buffer)) 'web-buffer))
       (progn
