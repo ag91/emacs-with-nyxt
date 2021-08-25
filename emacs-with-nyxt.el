@@ -69,9 +69,7 @@ Defaults to Sly because it has better integration with Nyxt."
   "Send STRING to `cl-ide'."
   (cond
    ((eq cl-ide 'slime) (slime-repl-eval-string string))
-   ((eq cl-ide 'sly) (sly-eval-with-transcript
-                      `(slynk:interactive-eval-region
-                        ,string)))))
+   ((eq cl-ide 'sly) (cdr (sly-eval `(slynk:eval-and-grab-output ,string))))))
 
 (defun emacs-with-nyxt-send-sexps (&rest s-exps)
   "Evaluate S-EXPS with Nyxt `cl-ide' session."
@@ -292,7 +290,7 @@ Defaults to Sly because it has better integration with Nyxt."
   "Open URL with Nyxt and optionally define BUFFER-TITLE."
   (interactive "sURL: ")
   (emacs-with-nyxt-send-sexps
-   (concatenate
+   (cl-concatenate
     'list
     (list
      'buffer-load
@@ -335,6 +333,81 @@ Defaults to Sly because it has better integration with Nyxt."
         (find-file "/tmp/qrcode.png")
         (auto-revert-mode))
     (error "You cannot use this until you have Quicklisp installed! Check how to do that at: https://www.quicklisp.org/beta/#installation")))
+
+(defun emacs-with-nyxt-get-nyxt-buffers ()
+  "Return nyxt buffers."
+  (when (emacs-with-nyxt-connected-p)
+    (read
+     (emacs-with-nyxt-send-sexps
+      '(map 'list (lambda (el) (slot-value el 'title)) (buffer-list))))))
+
+(defun emacs-with-nyxt-nyxt-switch-buffer (&optional title)
+  "Interactively switch nyxt buffers.  If argument is provided switch to buffer with TITLE."
+  (interactive)
+  (if (emacs-with-nyxt-connected-p)
+      (let ((title (or title (completing-read "Title: " (emacs-with-nyxt-get-nyxt-buffers)))))
+        (emacs-with-nyxt-send-sexps
+         `(switch-buffer :id (slot-value (find-if #'(lambda (el) (equal (slot-value el 'title) ,title)) (buffer-list)) 'id))))
+    (error (format "%s is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first" cl-ide))))
+
+(defun emacs-with-nyxt-get-nyxt-commands ()
+  "Return nyxt commands."
+  (when (emacs-with-nyxt-connected-p)
+    (read
+     (emacs-with-nyxt-send-sexps
+      `(let ((commands (make-instance 'command-source)))
+         (map 'list (lambda (el) (slot-value el 'name)) (funcall (slot-value commands 'prompter:CONSTRUCTOR) commands)))))))
+
+(defun emacs-with-nyxt-nyxt-run-command (&optional command)
+  "Interactively run nyxt COMMAND."
+  (interactive)
+  (if (emacs-with-nyxt-connected-p)
+      (let ((command (or command (completing-read "Execute command: " (emacs-with-nyxt-get-nyxt-commands)))))
+        (emacs-with-nyxt-send-sexps `(nyxt::run-async ',(read command))))
+    (error (format "%s is not connected to Nyxt. Run `emacs-with-nyxt-start-and-connect-to-nyxt' first" cl-ide))))
+
+(defun emacs-with-nyxt-nyxt-take-over-prompt ()
+  "Take over the nyxt prompt and let Emacs handle completions."
+  (interactive)
+  (emacs-with-nyxt-send-sexps
+   `(progn
+      (defun flatten (structure)
+        (cond ((null structure) nil)
+              ((atom structure) (list structure))
+              (t (mapcan #'flatten structure))))
+      
+      (defun prompt (&REST args)
+        (flet ((ensure-sources (specifiers)
+                               (mapcar (lambda (source-specifier)
+                                         (cond
+                                          ((and (symbolp source-specifier)
+                                                (c2cl:subclassp source-specifier 'source))
+                                           (make-instance source-specifier))
+                                          (t source-specifier)))
+                                       (uiop:ensure-list specifiers))))
+              (sleep 0.1)
+              (let* ((promptstring (list (getf args :prompt)))
+                     (sources (ensure-sources (getf args :sources)))
+                     (names (mapcar (lambda (ol) (slot-value ol 'prompter:attributes)) (flatten (mapcar (lambda (el) (slot-value el 'PROMPTER::INITIAL-SUGGESTIONS)) sources))))
+                     (testing (progn
+                                (setq my-names names)
+                                (setq my-prompt promptstring)))
+                     (completed (read-from-string (eval-in-emacs `(emacs-with-nyxt-nyxt-complete ',promptstring ',names))))
+                     (suggestion
+                      (find-if (lambda (el) (equal completed (slot-value el 'PROMPTER::ATTRIBUTES))) (flatten (mapcar (lambda (el) (slot-value el 'PROMPTER::INITIAL-SUGGESTIONS)) sources))))
+                     (selected-class (find-if (lambda (el) (find suggestion (slot-value el 'PROMPTER::INITIAL-SUGGESTIONS))) sources)))
+                (if selected-class
+                    (funcall (car (slot-value selected-class 'PROMPTER::ACTIONS)) (list (slot-value suggestion 'PROMPTER:VALUE)))
+                  (funcall (car (slot-value (car sources) 'PROMPTER::ACTIONS)) (list completed)))))))))
+
+(defun emacs-with-nyxt-nyxt-complete (prompt names)
+  "Completion function for nyxt completion."
+  (let* ((completions (--map (s-join "\t" (--map (s-join ": " it) it)) names))
+         (completed-string (completing-read (s-append ": " (car prompt)) completions))
+         (completed-index (-elem-index  completed-string completions)))
+    (if (numberp completed-index)
+        (nth completed-index names)
+      completed-string)))
 
 (provide 'emacs-with-nyxt)
 ;;; emacs-with-nyxt ends here
