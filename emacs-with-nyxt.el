@@ -69,7 +69,7 @@ Defaults to Sly because it has better integration with Nyxt."
   "Send STRING to `cl-ide'."
   (cond
    ((eq cl-ide 'slime) (slime-repl-eval-string string))
-   ((eq cl-ide 'sly) (cdr (sly-eval `(slynk:eval-and-grab-output ,(s-concat "(progn " string ")")))))))
+   ((eq cl-ide 'sly) (cdr (sly-eval `(slynk:eval-and-grab-output ,string))))))
 
 (defun emacs-with-nyxt-send-sexps (&rest s-exps)
   "Evaluate S-EXPS with Nyxt `cl-ide' session."
