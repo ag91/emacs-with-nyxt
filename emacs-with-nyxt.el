@@ -290,8 +290,7 @@ Defaults to Sly because it has better integration with Nyxt."
   "Open URL with Nyxt and optionally define BUFFER-TITLE."
   (interactive "sURL: ")
   (emacs-with-nyxt-send-sexps
-   (cl-concatenate
-    'list
+   (append
     (list
      'buffer-load
      url)
