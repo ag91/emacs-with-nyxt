@@ -242,7 +242,17 @@ Defaults to Sly because it has better integration with Nyxt."
                            (lambda ()
                              (org-store-link-props
                               :type "nyxt"
-                              :link ,(quri:render-uri (url (current-buffer)))
+                              :link ,(let ((url (quri:render-uri (url (current-buffer)))))
+                                       (if (str:containsp "youtu" url)
+                                           (str:concat
+                                            url
+                                            "&t="
+                                            (write-to-string
+                                             (floor
+                                              (ffi-buffer-evaluate-javascript (current-buffer)
+                                                                              "document.getElementById('movie_player').getCurrentTime();")))
+                                            "s")
+                                         url))
                               :description ,(title (current-buffer))))))))
           (org-capture nil "wN"))
        (echo "Note stored!")))
