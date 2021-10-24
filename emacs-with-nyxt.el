@@ -233,6 +233,18 @@ Defaults to Sly because it has better integration with Nyxt."
                         (keymap:define-key (gethash scheme:emacs scheme)
                                            "M-:" 'eval-expression)
                         scheme))))
+   `(defun emacs-with-nyxt-capture-link ()
+      (let ((url (quri:render-uri (url (current-buffer)))))
+        (if (str:containsp "youtu" url)
+            (str:concat
+             url
+             "&t="
+             (write-to-string
+              (floor
+               (ffi-buffer-evaluate-javascript (current-buffer)
+                                               "document.getElementById('movie_player').getCurrentTime();")))
+             "s")
+          url)))
    `(define-command-global org-capture ()
       "Org-capture current page."
       (eval-in-emacs
@@ -242,17 +254,7 @@ Defaults to Sly because it has better integration with Nyxt."
                            (lambda ()
                              (org-store-link-props
                               :type "nyxt"
-                              :link ,(let ((url (quri:render-uri (url (current-buffer)))))
-                                       (if (str:containsp "youtu" url)
-                                           (str:concat
-                                            url
-                                            "&t="
-                                            (write-to-string
-                                             (floor
-                                              (ffi-buffer-evaluate-javascript (current-buffer)
-                                                                              "document.getElementById('movie_player').getCurrentTime();")))
-                                            "s")
-                                         url))
+                              :link ,(emacs-with-nyxt-capture-link)
                               :description ,(title (current-buffer))))))))
           (org-capture nil "wN"))
        (echo "Note stored!")))
@@ -266,14 +268,15 @@ Defaults to Sly because it has better integration with Nyxt."
             (text (prompt
                    :input ""
                    :prompt "Note to take:"
-                   :sources (list (make-instance 'prompter:raw-source)))))
+                   :sources (list (make-instance 'prompter:raw-source))))
+            (link (emacs-with-nyxt-capture-link)))
         (eval-in-emacs
          `(let ((file (on/make-filepath ,(car title) (current-time))))
             (on/insert-org-roam-file
              file
              ,(car title)
              nil
-             (list ,(render-url (url (current-buffer))))
+             (list ,link)
              ,(car text)
              ,quote)
             (find-file file)
