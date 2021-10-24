@@ -242,7 +242,10 @@ Defaults to Sly because it has better integration with Nyxt."
              (write-to-string
               (floor
                (ffi-buffer-evaluate-javascript (current-buffer)
-                                               "document.getElementById('movie_player').getCurrentTime();")))
+                                               (ps:ps
+                                                (ps:chain document
+                                                          (get-element-by-id "movie_player")
+                                                          (get-current-time))))))
              "s")
           url)))
    `(define-command-global org-capture ()
