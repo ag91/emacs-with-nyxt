@@ -266,6 +266,7 @@ Defaults to Sly because it has better integration with Nyxt."
    `(define-command-global org-roam-capture ()
       "Org-capture current page."
       (let ((quote (%copy))
+            (link (emacs-with-nyxt-capture-link))
             (title (prompt
                     :input (title (current-buffer))
                     :prompt "Title of note:"
@@ -273,8 +274,7 @@ Defaults to Sly because it has better integration with Nyxt."
             (text (prompt
                    :input ""
                    :prompt "Note to take:"
-                   :sources (list (make-instance 'prompter:raw-source))))
-            (link (emacs-with-nyxt-capture-link)))
+                   :sources (list (make-instance 'prompter:raw-source)))))
         (eval-in-emacs
          `(let ((file (on/make-filepath ,(car title) (current-time))))
             (on/insert-org-roam-file
