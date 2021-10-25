@@ -160,9 +160,11 @@ Defaults to Sly because it has better integration with Nyxt."
 (defun emacs-with-nyxt-start-and-connect-to-nyxt (&optional no-maximize)
   "Start Nyxt with swank capabilities. Optionally skip window maximization with NO-MAXIMIZE."
   (interactive)
-  (async-shell-command (format "nyxt -e \"(nyxt-user::start-swank)\""))
-  (while (not (ignore-errors (not (emacs-with-nyxt-connect "localhost" "4006"))))
-    (message "Starting Swank connection...")
+  (async-shell-command (format "nyxt" ;; "nyxt -e \"(nyxt-user::start-swank)\""
+                               ))
+  (while (not (emacs-with-nyxt-connected-p))
+    (message (format "Starting %s connection..." cl-ide))
+    (ignore-errors (emacs-with-nyxt-connect "localhost" "4006"))
     (sleep-for emacs-with-nyxt-delay))
   (while (not (ignore-errors (string= "NYXT-USER" (upcase (emacs-with-nyxt-current-package)))))
     (progn (message "Setting %s package to NYXT-USER..." cl-ide)

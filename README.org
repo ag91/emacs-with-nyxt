@@ -21,3 +21,21 @@ You can find here the blogs that explain in more detail how this works:
 - https://ag91.github.io/blog/2021/07/09/org-capture-in-nyxt-taking-notes-while-browsing/
 - https://ag91.github.io/blog/2021/07/22/nyxt-to-mold-html-the-first-mix-of-moldable-emacs-and-browsing/
 - https://ag91.github.io/blog/2021/07/25/org-roam-and-nyxt-taking-zettelkasten-notes-from-the-web/
+
+
+** For MacOS
+:PROPERTIES:
+:CREATED:  [2021-10-25 Mon 09:51]
+:ID:       C598D2A8-6815-42FB-963D-258341A0EE7B
+:END:
+
+
+Please follow the instructions here: https://github.com/deddu/nyxt-docker
+
+Then set =(setq shell-command-switch "-ic")= and add to your =.zshrc= file (substitute your user for =<your-user>=)
+
+#+begin_src sh :noeval
+alias nyxt="xterm -e 'xhost +127.0.0.1; docker run -it -p 4006:4006 -v /Users/<your-user>:/root/ --rm bigdeddu/nyxt:2.2.1'"
+#+end_src
+
+After that you should have everything to run =emacs-with-nyxt=. [[https://github.com/deddu/nyxt-docker/issues/6][And make sure Swank or Sly use 0.0.0.0 instead of localhost]].
