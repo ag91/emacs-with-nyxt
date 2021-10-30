@@ -426,6 +426,18 @@ Defaults to Sly because it has better integration with Nyxt."
         (nth completed-index names)
       completed-string)))
 
+(defun emacs-with-nyxt-decode-command (encoded)
+  "Decode an ENCODED link containing some Elisp. This is for the `.ag91' links."
+  (--> encoded
+       (s-split "/" it t)
+       reverse
+       car
+       (s-split "\\." it t)
+       car
+       base64-decode-string
+       read
+       eval))
+
 (provide 'emacs-with-nyxt)
 ;;; emacs-with-nyxt ends here
 
