@@ -198,18 +198,17 @@ Defaults to Sly because it has better integration with Nyxt."
    `(ql:quickload "cl-qrencode")
    `(define-command-global my/make-current-url-qr-code () ; this is going to be redundant: https://nyxt.atlas.engineer/article/qr-url.org
       "Something else."
-      (when (equal (mode-name (current-buffer)) 'web-buffer))
-      (progn
+      (when (find-mode (current-buffer) 'web-mode)
         (cl-qrencode:encode-png (quri:render-uri (url (current-buffer))) :fpath "/tmp/qrcode.png")
         (uiop:run-program (list "nyxt" "/tmp/qrcode.png"))))
    '(define-command-global my/open-html-in-emacs ()
       "Open buffer html in Emacs."
-      (when (equal (mode-name (current-buffer)) 'web-buffer))
-      (with-open-file
-       (file "/tmp/temp-nyxt.html" :direction :output
-             :if-exists :supersede
-             :if-does-not-exist :create)
-       (write-string (ffi-buffer-get-document (current-buffer)) file))
+      (when (find-mode (current-buffer) 'web-mode)
+        (with-open-file
+         (file "/tmp/temp-nyxt.html" :direction :output
+               :if-exists :supersede
+               :if-does-not-exist :create)
+         (write-string (ffi-buffer-get-document (current-buffer)) file)))
       (eval-in-emacs
        `(progn (switch-to-buffer
                 (get-buffer-create ,(render-url (url (current-buffer)))))
@@ -276,7 +275,8 @@ Defaults to Sly because it has better integration with Nyxt."
                    :prompt "Note to take:"
                    :sources (list (make-instance 'prompter:raw-source)))))
         (eval-in-emacs
-         `(let ((file (on/make-filepath ,(car title) (current-time))))
+         `(let ((_ (require 'org-roam))
+                (file (on/make-filepath ,(car title) (current-time))))
             (on/insert-org-roam-file
              file
              ,(car title)
